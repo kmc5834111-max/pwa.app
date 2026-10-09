@@ -1,0 +1,19 @@
+{
+  "id": "/pwa.app/",
+  "name": "SBAR Shift Handover System",
+  "short_name": "SBAR Handover",
+  "description": "Structured clinical shift handover using the SBAR framework",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "en",
+  "categories": ["medical", "productivity"],
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

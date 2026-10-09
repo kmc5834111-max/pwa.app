@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="SBAR Handover">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>SBAR Shift Handover System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        medical: {
+                            50: '#f0fdfa',
+                            100: '#ccfbf1',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            700: '#0f766e',
+                            800: '#115e59',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbars for clean UI */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Bar / Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30" style="padding-top:env(safe-area-inset-top,0px)">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand & Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-teal-500 flex items-center justify-center text-white shadow-lg font-bold text-xl">
+                        <i class="fa-solid font-bold fa-heart-pulse"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-bold text-lg leading-none tracking-tight">SBAR Shift Handover System</h1>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">Structured Clinical Communication Platform</p>
+                    </div>
+                </div>
+
+                <!-- Controls & Stats -->
+                <div class="flex items-center space-x-4">
+                    <!-- Ward Selector -->
+                    <div class="relative">
+                        <label for="wardSelect" class="sr-only">Select Ward</label>
+                        <div class="flex items-center bg-slate-800 rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-200">
+                            <i class="fa-solid fa-hospital text-teal-400 mr-2"></i>
+                            <select id="wardSelect" onchange="changeWard(this.value)" class="bg-transparent text-white focus:outline-none cursor-pointer font-medium">
+                                <option value="ICU" class="bg-slate-800">Intensive Care Unit (ICU)</option>
+                                <option value="Cardiac" class="bg-slate-800">Cardiac Ward</option>
+                                <option value="Surgical" class="bg-slate-800">Surgical Unit</option>
+                                <option value="Medical" class="bg-slate-800">General Medical Ward</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Active Shift Badge -->
+                    <div class="hidden md:flex items-center space-x-2 bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
+                        <i class="fa-solid fa-clock text-amber-400"></i>
+                        <span id="shiftBadge" class="font-medium text-slate-200">Morning Shift (08:00 - 16:00)</span>
+                    </div>
+
+                    <!-- Date/Time Display -->
+                    <div class="hidden lg:block text-right text-xs text-slate-300 border-l border-slate-800 pl-4">
+                        <div id="currentDate" class="font-semibold text-slate-100"></div>
+                        <div id="currentTime" class="text-slate-400"></div>
+                    </div>
+
+                    <!-- Complete Shift Button -->
+                    <button onclick="openShiftSignoffModal()" class="bg-teal-600 hover:bg-teal-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-signature"></i>
+                        <span class="hidden sm:inline">Sign-off Shift</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Ward Statistics Bar -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-medium text-slate-500">Total Patients</p>
+                    <h3 id="statTotal" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-bed"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-red-600 uppercase tracking-wide">High Risk / Unstable</p>
+                    <h3 id="statRed" class="text-2xl font-bold text-red-600 mt-1">0</h3>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-amber-600 uppercase tracking-wide">Guarded</p>
+                    <h3 id="statYellow" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wide">Stable</p>
+                    <h3 id="statGreen" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter & Actions Bar -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <!-- Filter Tabs -->
+            <div class="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                <button onclick="setFilter('ALL')" id="filterAll" class="px-3 py-1.5 text-xs font-medium rounded-lg transition-all bg-slate-800 text-white">
+                    All Patients
+                </button>
+                <button onclick="setFilter('RED')" id="filterRed" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span> High Risk
+                </button>
+                <button onclick="setFilter('YELLOW')" id="filterYellow" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span> Guarded
+                </button>
+                <button onclick="setFilter('GREEN')" id="filterGreen" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Stable
+                </button>
+                <button onclick="setFilter('TASKS')" id="filterTasks" class="px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-1.5">
+                    <i class="fa-solid fa-list-check text-slate-400"></i> Pending Tasks
+                </button>
+            </div>
+
+            <!-- Search and Controls -->
+            <div class="flex items-center gap-3">
+                <div class="relative flex-1 md:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                    <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search patient, MRN or bed..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all">
+                </div>
+
+                <button onclick="openNewPatientModal()" class="bg-teal-700 hover:bg-teal-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Add Patient</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Patient Grid Header -->
+        <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                <i class="fa-solid fa-users text-teal-600"></i>
+                <span id="wardTitleHeading">ICU Patient Handover List</span>
+            </h2>
+            <span class="text-xs text-slate-400" id="resultCountText">Showing all patients</span>
+        </div>
+
+        <!-- Patient Cards Grid -->
+        <div id="patientGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- Patient Cards dynamically populated here -->
+        </div>
+
+        <!-- Empty State Message -->
+        <div id="emptyState" class="hidden bg-white rounded-xl border border-dashed border-slate-300 p-12 text-center">
+            <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-3">
+                <i class="fa-solid fa-folder-open text-xl"></i>
+            </div>
+            <h3 class="text-sm font-semibold text-slate-700">No matching patients found</h3>
+            <p class="text-xs text-slate-500 mt-1">Try adjusting your risk filters or search terms.</p>
+        </div>
+    </main>
+
+    <!-- SBAR Handover Drawer / Modal -->
+    <div id="sbarModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex justify-end transition-opacity">
+        <div class="bg-white w-full max-w-3xl h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+            
+            <!-- Drawer Header -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800">
+                <div class="flex items-center space-x-3">
+                    <span id="modalAcuityPill" class="px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wider bg-red-500 text-white">High Risk</span>
+                    <div>
+                        <h2 id="modalPatientName" class="text-lg font-bold text-white leading-tight">Patient Name</h2>
+                        <p id="modalPatientSub" class="text-xs text-slate-400">MRN: 00000 | Bed: 00 | Male, 00 yrs</p>
+                    </div>
+                </div>
+                <button onclick="closeSbarModal()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Drawer Content (Scrollable) -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
+
+                <!-- Quick Vitals Bar -->
+                <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                    <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <i class="fa-solid fa-heart-pulse text-teal-600"></i> Vital Signs Snapshot
+                    </h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">BP (mmHg)</span>
+                            <span id="vitalBP" class="text-sm font-bold text-slate-800">120/80</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">HR (bpm)</span>
+                            <span id="vitalHR" class="text-sm font-bold text-slate-800">82</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">SpO2 (%)</span>
+                            <span id="vitalSpO2" class="text-sm font-bold text-slate-800">98%</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">Temp (°C)</span>
+                            <span id="vitalTemp" class="text-sm font-bold text-slate-800">37.0</span>
+                        </div>
+                        <div class="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <span class="block text-[10px] text-slate-400 uppercase font-semibold">GCS / Resp</span>
+                            <span id="vitalGCS" class="text-sm font-bold text-slate-800">15 / 18</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editable SBAR Form -->
+                <form id="sbarForm" class="space-y-4">
+                    <input type="hidden" id="modalPatientId">
+
+                    <!-- S - SITUATION -->
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-600"></div>
+                        <label for="sbarSituation" class="flex items-center text-sm font-bold text-blue-900 mb-2">
+                            <span class="w-6 h-6 rounded bg-blue-100 text-blue-700 flex items-center justify-center text-xs mr-2 font-bold">S</span>
+                            SITUATION (Current Status & Admission Reason)
+                        </label>
+                        <textarea id="sbarSituation" rows="3" class="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white" placeholder="Describe current situation, clinical status, and primary concern..."></textarea>
+                    </div>
+
+                    <!-- B - BACKGROUND -->
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
+                        <label for="sbarBackground" class="flex items-center text-sm font-bold text-amber-900 mb-2">
+                            <span class="w-6 h-6 rounded bg-amber-100 text-amber-700 flex items-center justify-center text-xs mr-2 font-bold">B</span>
+                            BACKGROUND (Clinical Context & History)
+                        </label>
+                        <textarea id="sbarBackground" rows="3" class="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white" placeholder="Medical history, allergies, surgical context, vital trends..."></textarea>
+                    </div>
+
+                    <!-- A - ASSESSMENT -->
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-purple-600"></div>
+                        <label for="sbarAssessment" class="flex items-center text-sm font-bold text-purple-900 mb-2">
+                            <span class="w-6 h-6 rounded bg-purple-100 text-purple-700 flex items-center justify-center text-xs mr-2 font-bold">A</span>
+                            ASSESSMENT (Clinical Findings, Labs & Lines)
+                        </label>
+                        <textarea id="sbarAssessment" rows="3" class="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white" placeholder="Physical findings, lab values, central/IV line status, wound condition..."></textarea>
+                    </div>
+
+                    <!-- R - RECOMMENDATION -->
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-emerald-600"></div>
+                        <label for="sbarRecommendation" class="flex items-center text-sm font-bold text-emerald-900 mb-2">
+                            <span class="w-6 h-6 rounded bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs mr-2 font-bold">R</span>
+                            RECOMMENDATION (Action Plan & Watch Items)
+                        </label>
+                        <textarea id="sbarRecommendation" rows="3" class="w-full text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white" placeholder="Specific action items, pending lab reviews, scheduled interventions..."></textarea>
+                    </div>
+                </form>
+
+                <!-- Tasks / Action Checklist Section -->
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-list-check text-teal-600"></i> Next Shift Pending Tasks
+                        </h4>
+                        <span id="modalTaskCounter" class="text-[10px] bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full font-bold">0 Pending</span>
+                    </div>
+
+                    <!-- Task List Container -->
+                    <div id="modalTaskList" class="space-y-2 mb-3">
+                        <!-- Dynamically populated tasks -->
+                    </div>
+
+                    <!-- Add New Task Input -->
+                    <div class="flex items-center gap-2">
+                        <label for="newTaskInput" class="sr-only">New Action Item</label>
+                        <input type="text" id="newTaskInput" placeholder="Add new action item (e.g. 'Check ABG at 6 PM')..." class="flex-1 text-xs bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        <button onclick="addTaskFromModal()" type="button" class="bg-slate-800 hover:bg-slate-900 text-white text-xs px-3 py-2 rounded-lg font-semibold transition-all flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Add
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Last Update Metadata -->
+                <div class="text-xs text-slate-400 flex items-center justify-between bg-slate-100 p-3 rounded-lg border border-slate-200">
+                    <span id="modalLastUpdated"><i class="fa-regular fa-clock mr-1"></i> Last modified: --</span>
+                    <span id="modalUpdatedBy"><i class="fa-regular fa-user mr-1"></i> Nurse: --</span>
+                </div>
+
+            </div>
+
+            <!-- Drawer Footer -->
+            <div class="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
+                <button onclick="saveSbarChanges()" type="button" class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg text-xs font-semibold shadow transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> Save SBAR Updates
+                </button>
+                <button onclick="closeSbarModal()" type="button" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold transition-all">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Patient Modal -->
+    <div id="addPatientModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus text-teal-400"></i> Add New Ward Patient
+                </h3>
+                <button onclick="closeNewPatientModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <form id="newPatientForm" onsubmit="handleCreatePatient(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="newPtName" class="block text-xs font-medium text-slate-600 mb-1">Full Name</label>
+                        <input type="text" id="newPtName" required placeholder="e.g. Tariq Mehmood" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label for="newPtMRN" class="block text-xs font-medium text-slate-600 mb-1">MRN Number</label>
+                        <input type="text" id="newPtMRN" required placeholder="e.g. MRN-88402" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label for="newPtBed" class="block text-xs font-medium text-slate-600 mb-1">Bed No.</label>
+                        <input type="text" id="newPtBed" required placeholder="e.g. ICU-05" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label for="newPtAge" class="block text-xs font-medium text-slate-600 mb-1">Age</label>
+                        <input type="number" id="newPtAge" required placeholder="45" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label for="newPtGender" class="block text-xs font-medium text-slate-600 mb-1">Gender</label>
+                        <select id="newPtGender" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="newPtDiag" class="block text-xs font-medium text-slate-600 mb-1">Primary Diagnosis</label>
+                    <input type="text" id="newPtDiag" required placeholder="e.g. Acute Coronary Syndrome" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                </div>
+
+                <div>
+                    <label for="newPtAcuity" class="block text-xs font-medium text-slate-600 mb-1">Acuity Status</label>
+                    <select id="newPtAcuity" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500 font-semibold">
+                        <option value="RED" class="text-red-600 font-bold">High Risk / Unstable (Red)</option>
+                        <option value="YELLOW" class="text-amber-600 font-bold">Guarded (Yellow)</option>
+                        <option value="GREEN" class="text-emerald-600 font-bold" selected>Stable (Green)</option>
+                    </select>
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeNewPatientModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-xs font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 shadow">Add Patient to Ward</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Shift Signoff Modal -->
+    <div id="signoffModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-signature text-teal-400"></i> Digital Shift Handover Sign-Off
+                </h3>
+                <button onclick="closeShiftSignoffModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-xs text-teal-900">
+                    <p class="font-semibold mb-1"><i class="fa-solid fa-circle-info mr-1"></i> Legal Audit Confirmation</p>
+                    <p>Completing handover archives the current shift's SBAR notes for the active ward and transfers task ownership to the oncoming clinical team.</p>
+                </div>
+
+                <div class="space-y-3">
+                    <div>
+                        <label for="outgoingStaff" class="block text-xs font-semibold text-slate-700 mb-1">Outgoing Staff Name & Designation</label>
+                        <input type="text" id="outgoingStaff" value="Nurse Ayesha Khan (RN - Lead)" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-medium">
+                    </div>
+                    <div>
+                        <label for="incomingStaff" class="block text-xs font-semibold text-slate-700 mb-1">Incoming Staff Name & Designation</label>
+                        <input type="text" id="incomingStaff" placeholder="e.g. Nurse Bilal Ahmed (RN)" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div>
+                        <label for="signoffNotes" class="block text-xs font-semibold text-slate-700 mb-1">General Ward Transfer Summary Notes</label>
+                        <textarea id="signoffNotes" rows="2" class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5" placeholder="Optional ward summary or general equipment notes..."></textarea>
+                    </div>
+                </div>
+
+                <div id="signoffSuccessAlert" class="hidden p-3 bg-emerald-100 text-emerald-800 rounded-lg text-xs font-medium text-center">
+                    <i class="fa-solid fa-circle-check mr-1"></i> Handover successfully recorded and timestamped!
+                </div>
+
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeShiftSignoffModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200">Cancel</button>
+                    <button id="confirmSignoffBtn" onclick="processShiftSignoff()" type="button" class="px-4 py-2 text-xs font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 shadow flex items-center gap-1.5">
+                        <i class="fa-solid fa-check"></i> Complete Digital Sign-Off
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // Default Mock Data for Clinical Wards
+        let mockPatients = [
+            {
+                id: 'PT-101',
+                ward: 'ICU',
+                name: 'Muhammad Usman',
+                mrn: 'MRN-90214',
+                bed: 'ICU-02',
+                age: 58,
+                gender: 'Male',
+                acuity: 'RED', // RED, YELLOW, GREEN
+                diagnosis: 'Acute Respiratory Distress Syndrome (ARDS) / Post-Intubation',
+                vitals: { bp: '135/88', hr: '104', spo2: '92%', temp: '38.2', gcs: 'E3VTM5' },
+                situation: 'Patient remains mechanically ventilated on SIMV mode following severe pneumonia complications. SpO2 unstable on changes.',
+                background: 'History of type 2 diabetes and hypertension. Admitted 3 days ago. Allergic to Penicillin.',
+                assessment: 'Bilateral crepitations present on auscultation. ABG shows mild respiratory acidosis (pH 7.31). Central line right subclavian intact with clean dressing.',
+                recommendation: 'Repeat ABG at 17:00. Maintain continuous sedation. Physician requested chest X-ray review at evening rounds.',
+                tasks: [
+                    { id: 't1', text: 'Repeat arterial blood gas (ABG) at 17:00', done: false },
+                    { id: 't2', text: 'Check endotracheal cuff pressure', done: true },
+                    { id: 't3', text: 'Schedule evening bedside chest X-ray', done: false }
+                ],
+                updatedAt: '15:20',
+                updatedBy: 'RN Ayesha Khan'
+            },
+            {
+                id: 'PT-102',
+                ward: 'ICU',
+                name: 'Zainab Bibi',
+                mrn: 'MRN-90288',
+                bed: 'ICU-05',
+                age: 64,
+                gender: 'Female',
+                acuity: 'YELLOW',
+                diagnosis: 'Post-CABG (Day 2) Surgical Monitoring',
+                vitals: { bp: '118/74', hr: '78', spo2: '97%', temp: '36.8', gcs: '15/15' },
+                situation: 'Day 2 post-Coronary Artery Bypass Graft surgery. Extubated yesterday, currently on nasal cannula 2L/min.',
+                background: 'Triple vessel disease. S/P CABG x 3. Chest tube drains placed bilateral.',
+                assessment: 'Mediastinal drain output < 30ml/4hr. Sternal wound site dry and intact. Mild peripheral edema.',
+                recommendation: 'Encourage incentive spirometry hourly. Assist with bed-to-chair transfer in evening shift. Monitor potassium levels.',
+                tasks: [
+                    { id: 't4', text: 'Incentive spirometry exercise (10 reps/hr)', done: false },
+                    { id: 't5', text: 'Check serum potassium post-replacement', done: false }
+                ],
+                updatedAt: '14:45',
+                updatedBy: 'RN Ayesha Khan'
+            },
+            {
+                id: 'PT-103',
+                ward: 'ICU',
+                name: 'Hamza Farooq',
+                mrn: 'MRN-91102',
+                bed: 'ICU-08',
+                age: 32,
+                gender: 'Male',
+                acuity: 'GREEN',
+                diagnosis: 'Polytrauma / Post Splenectomy - Step-down ready',
+                vitals: { bp: '122/78', hr: '72', spo2: '99%', temp: '36.6', gcs: '15/15' },
+                situation: 'Hemodynamically stable following emergency laparotomy and splenectomy. Cleared for step-down to surgical unit.',
+                background: 'RTA 4 days ago. No prior chronic co-morbidities. NKA.',
+                assessment: 'Abdominal dressing clean and intact. Bowel sounds present. Tolerating soft diet.',
+                recommendation: 'Awaiting ward bed availability. Complete transfer summary documentation.',
+                tasks: [
+                    { id: 't6', text: 'Complete step-down nursing transfer note', done: true }
+                ],
+                updatedAt: '13:10',
+                updatedBy: 'RN Bilal'
+            },
+            {
+                id: 'PT-201',
+                ward: 'Cardiac',
+                name: 'Abdul Rehman',
+                mrn: 'MRN-88190',
+                bed: 'CARD-03',
+                age: 61,
+                gender: 'Male',
+                acuity: 'RED',
+                diagnosis: 'Acute Anterior Wall STEMI - Post Primary PCI',
+                vitals: { bp: '95/60', hr: '112', spo2: '94%', temp: '37.1', gcs: '15/15' },
+                situation: 'Patient experienced sudden episodes of ventricular ectopics post stenting to LAD.',
+                background: 'Heavy smoker, hyperlipidemia. PCI performed 6 hours ago via femoral route.',
+                assessment: 'Femoral sheath puncture site clean without hematoma. Distal pulses palpable. Mild persistent chest tightness (2/10).',
+                recommendation: 'Continuous telemetry monitoring required. Strict bed rest. Keep femoral pressure bandage till 20:00.',
+                tasks: [
+                    { id: 't7', text: 'Check femoral access site for hematoma q1h', done: false },
+                    { id: 't8', text: 'Repeat cardiac enzymes panel at 18:00', done: false }
+                ],
+                updatedAt: '15:00',
+                updatedBy: 'RN Sadia'
+            }
+        ];
+
+        // Global State Variables
+        let currentWard = 'ICU';
+        let currentFilter = 'ALL';
+        let searchQuery = '';
+        let activePatientId = null;
+
+        // --- Persistence (app mode): keep data on the device between sessions ---
+        const STORE_KEY = 'sbar_handover_v1';
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORE_KEY));
+            if (Array.isArray(saved) && saved.length) mockPatients = saved;
+        } catch (e) {}
+        function persist() {
+            try { localStorage.setItem(STORE_KEY, JSON.stringify(mockPatients)); } catch (e) {}
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderDashboard();
+        });
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('currentDate').innerText = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            document.getElementById('currentTime').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function changeWard(ward) {
+            currentWard = ward;
+            document.getElementById('wardTitleHeading').innerText = `${ward} Patient Handover List`;
+            renderDashboard();
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            
+            // Update filter button styling
+            const buttons = {
+                'ALL': 'filterAll',
+                'RED': 'filterRed',
+                'YELLOW': 'filterYellow',
+                'GREEN': 'filterGreen',
+                'TASKS': 'filterTasks'
+            };
+
+            Object.keys(buttons).forEach(key => {
+                const btn = document.getElementById(buttons[key]);
+                if (key === filter) {
+                    btn.className = "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-slate-800 text-white shadow-sm";
+                } else {
+                    btn.className = "px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-1.5";
+                }
+            });
+
+            renderDashboard();
+        }
+
+        function handleSearch() {
+            searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            persist();
+            const grid = document.getElementById('patientGrid');
+            const emptyState = document.getElementById('emptyState');
+            grid.innerHTML = '';
+
+            // Filter patients by active ward
+            let wardPatients = mockPatients.filter(p => p.ward === currentWard);
+
+            // Calculate Quick Stats for Ward
+            document.getElementById('statTotal').innerText = wardPatients.length;
+            document.getElementById('statRed').innerText = wardPatients.filter(p => p.acuity === 'RED').length;
+            document.getElementById('statYellow').innerText = wardPatients.filter(p => p.acuity === 'YELLOW').length;
+            document.getElementById('statGreen').innerText = wardPatients.filter(p => p.acuity === 'GREEN').length;
+
+            // Apply Risk Filter
+            if (currentFilter === 'RED') wardPatients = wardPatients.filter(p => p.acuity === 'RED');
+            if (currentFilter === 'YELLOW') wardPatients = wardPatients.filter(p => p.acuity === 'YELLOW');
+            if (currentFilter === 'GREEN') wardPatients = wardPatients.filter(p => p.acuity === 'GREEN');
+            if (currentFilter === 'TASKS') wardPatients = wardPatients.filter(p => p.tasks.some(t => !t.done));
+
+            // Apply Search Query Filter
+            if (searchQuery) {
+                wardPatients = wardPatients.filter(p => 
+                    p.name.toLowerCase().includes(searchQuery) ||
+                    p.mrn.toLowerCase().includes(searchQuery) ||
+                    p.bed.toLowerCase().includes(searchQuery) ||
+                    p.diagnosis.toLowerCase().includes(searchQuery)
+                );
+            }
+
+            document.getElementById('resultCountText').innerText = `Showing ${wardPatients.length} patient(s)`;
+
+            if (wardPatients.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // Generate Patient Cards
+            wardPatients.forEach(p => {
+                const pendingTasksCount = p.tasks.filter(t => !t.done).length;
+                
+                // Acuity Badge Config
+                let acuityConfig = {
+                    bg: 'bg-red-50 text-red-700 border-red-200',
+                    dot: 'bg-red-500',
+                    label: 'High Risk / Unstable'
+                };
+                if (p.acuity === 'YELLOW') {
+                    acuityConfig = { bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Guarded' };
+                } else if (p.acuity === 'GREEN') {
+                    acuityConfig = { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Stable' };
+                }
+
+                const cardHtml = `
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between overflow-hidden">
+                        
+                        <!-- Card Header -->
+                        <div class="p-4 border-b border-slate-100">
+                            <div class="flex items-start justify-between gap-2 mb-2">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase">${p.bed} • ${p.mrn}</span>
+                                    <h3 class="font-bold text-slate-800 text-base leading-snug">${p.name}</h3>
+                                    <p class="text-xs text-slate-500">${p.gender}, ${p.age} yrs</p>
+                                </div>
+                                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold border flex items-center gap-1.5 whitespace-nowrap ${acuityConfig.bg}">
+                                    <span class="w-2 h-2 rounded-full ${acuityConfig.dot} animate-pulse"></span>
+                                    ${acuityConfig.label}
+                                </span>
+                            </div>
+
+                            <p class="text-xs font-semibold text-slate-700 mt-2 bg-slate-50 p-2 rounded border border-slate-100 flex items-center gap-1.5">
+                                <i class="fa-solid fa-stethoscope text-teal-600"></i> ${p.diagnosis}
+                            </p>
+                        </div>
+
+                        <!-- SBAR Brief Snippet -->
+                        <div class="p-4 text-xs space-y-2 text-slate-600 flex-1">
+                            <div>
+                                <strong class="text-slate-800 text-[11px] uppercase tracking-wide flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Situation:
+                                </strong>
+                                <p class="line-clamp-2 text-slate-600 text-[11px] mt-0.5">${p.situation}</p>
+                            </div>
+                            
+                            <!-- Pending Tasks Counter Tag -->
+                            <div class="pt-2 flex items-center justify-between border-t border-slate-100 text-[11px]">
+                                <span class="text-slate-500 flex items-center gap-1 font-medium">
+                                    <i class="fa-solid fa-list-check text-slate-400"></i> Pending Tasks:
+                                </span>
+                                ${pendingTasksCount > 0 ? 
+                                    `<span class="bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full text-[10px]">${pendingTasksCount} pending</span>` : 
+                                    `<span class="bg-emerald-100 text-emerald-800 font-medium px-2 py-0.5 rounded-full text-[10px]">All completed</span>`
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Card Action Footer -->
+                        <div class="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+                            <span class="text-[10px] text-slate-400">Updated ${p.updatedAt}</span>
+                            <button onclick="openSbarModal('${p.id}')" class="bg-slate-800 hover:bg-teal-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-sm">
+                                <i class="fa-solid fa-notes-medical"></i> View / Edit SBAR
+                            </button>
+                        </div>
+
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        function openSbarModal(patientId) {
+            activePatientId = patientId;
+            const patient = mockPatients.find(p => p.id === patientId);
+            if (!patient) return;
+
+            // Header info
+            document.getElementById('modalPatientId').value = patient.id;
+            document.getElementById('modalPatientName').innerText = patient.name;
+            document.getElementById('modalPatientSub').innerText = `MRN: ${patient.mrn} | Bed: ${patient.bed} | ${patient.gender}, ${patient.age} yrs`;
+
+            // Acuity Pill
+            const pill = document.getElementById('modalAcuityPill');
+            if (patient.acuity === 'RED') {
+                pill.className = "px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wider bg-red-600 text-white";
+                pill.innerText = "High Risk / Unstable";
+            } else if (patient.acuity === 'YELLOW') {
+                pill.className = "px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wider bg-amber-500 text-white";
+                pill.innerText = "Guarded";
+            } else {
+                pill.className = "px-2.5 py-1 text-xs font-bold rounded-full uppercase tracking-wider bg-emerald-600 text-white";
+                pill.innerText = "Stable";
+            }
+
+            // Vitals
+            document.getElementById('vitalBP').innerText = patient.vitals.bp;
+            document.getElementById('vitalHR').innerText = patient.vitals.hr;
+            document.getElementById('vitalSpO2').innerText = patient.vitals.spo2;
+            document.getElementById('vitalTemp').innerText = patient.vitals.temp;
+            document.getElementById('vitalGCS').innerText = patient.vitals.gcs;
+
+            // Form Fields
+            document.getElementById('sbarSituation').value = patient.situation;
+            document.getElementById('sbarBackground').value = patient.background;
+            document.getElementById('sbarAssessment').value = patient.assessment;
+            document.getElementById('sbarRecommendation').value = patient.recommendation;
+
+            // Metadata
+            document.getElementById('modalLastUpdated').innerHTML = `<i class="fa-regular fa-clock mr-1"></i> Last modified: Today at ${patient.updatedAt}`;
+            document.getElementById('modalUpdatedBy').innerHTML = `<i class="fa-regular fa-user mr-1"></i> Staff: ${patient.updatedBy}`;
+
+            // Render Task Checklist
+            renderModalTasks(patient);
+
+            // Show Drawer Modal
+            document.getElementById('sbarModal').classList.remove('hidden');
+        }
+
+        function closeSbarModal() {
+            document.getElementById('sbarModal').classList.add('hidden');
+            activePatientId = null;
+        }
+
+        function renderModalTasks(patient) {
+            const taskContainer = document.getElementById('modalTaskList');
+            taskContainer.innerHTML = '';
+
+            const pending = patient.tasks.filter(t => !t.done).length;
+            document.getElementById('modalTaskCounter').innerText = `${pending} Pending`;
+
+            if (patient.tasks.length === 0) {
+                taskContainer.innerHTML = `<p class="text-xs text-slate-400 italic">No task action items added yet.</p>`;
+                return;
+            }
+
+            patient.tasks.forEach(task => {
+                const taskHtml = `
+                    <div class="flex items-center justify-between p-2.5 rounded-lg border ${task.done ? 'bg-slate-50 border-slate-200' : 'bg-amber-50/50 border-amber-200/60'} text-xs">
+                        <label class="flex items-center gap-2 flex-1 cursor-pointer">
+                            <input type="checkbox" ${task.done ? 'checked' : ''} onchange="toggleTask('${patient.id}', '${task.id}')" class="w-4 h-4 rounded text-teal-600 focus:ring-teal-500">
+                            <span class="${task.done ? 'line-through text-slate-400' : 'text-slate-800 font-medium'}">${task.text}</span>
+                        </label>
+                        <button onclick="removeTask('${patient.id}', '${task.id}')" class="text-slate-400 hover:text-red-500 text-xs px-1">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                taskContainer.insertAdjacentHTML('beforeend', taskHtml);
+            });
+        }
+
+        function toggleTask(patientId, taskId) {
+            const patient = mockPatients.find(p => p.id === patientId);
+            if (!patient) return;
+            const task = patient.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.done = !task.done;
+                renderModalTasks(patient);
+                renderDashboard();
+            }
+        }
+
+        function addTaskFromModal() {
+            const input = document.getElementById('newTaskInput');
+            const text = input.value.trim();
+            if (!text || !activePatientId) return;
+
+            const patient = mockPatients.find(p => p.id === activePatientId);
+            if (patient) {
+                patient.tasks.push({
+                    id: 't_' + Date.now(),
+                    text: text,
+                    done: false
+                });
+                input.value = '';
+                renderModalTasks(patient);
+                renderDashboard();
+            }
+        }
+
+        function removeTask(patientId, taskId) {
+            const patient = mockPatients.find(p => p.id === patientId);
+            if (patient) {
+                patient.tasks = patient.tasks.filter(t => t.id !== taskId);
+                renderModalTasks(patient);
+                renderDashboard();
+            }
+        }
+
+        function saveSbarChanges() {
+            if (!activePatientId) return;
+            const patient = mockPatients.find(p => p.id === activePatientId);
+            if (patient) {
+                patient.situation = document.getElementById('sbarSituation').value;
+                patient.background = document.getElementById('sbarBackground').value;
+                patient.assessment = document.getElementById('sbarAssessment').value;
+                patient.recommendation = document.getElementById('sbarRecommendation').value;
+                
+                const now = new Date();
+                patient.updatedAt = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                patient.updatedBy = 'RN Current Shift';
+
+                renderDashboard();
+                closeSbarModal();
+            }
+        }
+
+        function openNewPatientModal() {
+            document.getElementById('addPatientModal').classList.remove('hidden');
+        }
+
+        function closeNewPatientModal() {
+            document.getElementById('addPatientModal').classList.add('hidden');
+            document.getElementById('newPatientForm').reset();
+        }
+
+        function handleCreatePatient(event) {
+            event.preventDefault();
+            const newPt = {
+                id: 'PT-' + Math.floor(100 + Math.random() * 900),
+                ward: currentWard,
+                name: document.getElementById('newPtName').value,
+                mrn: document.getElementById('newPtMRN').value,
+                bed: document.getElementById('newPtBed').value,
+                age: document.getElementById('newPtAge').value,
+                gender: document.getElementById('newPtGender').value,
+                acuity: document.getElementById('newPtAcuity').value,
+                diagnosis: document.getElementById('newPtDiag').value,
+                vitals: { bp: '120/80', hr: '80', spo2: '98%', temp: '37.0', gcs: '15/15' },
+                situation: 'Newly admitted patient. Initial nursing evaluation completed.',
+                background: 'Awaiting formal history review and previous records.',
+                assessment: 'Vitals stable on admission. Baseline labs sent.',
+                recommendation: 'Complete admission medication reconciliation during shift.',
+                tasks: [
+                    { id: 't_init', text: 'Verify admission lab results', done: false }
+                ],
+                updatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                updatedBy: 'RN Current Shift'
+            };
+
+            mockPatients.unshift(newPt);
+            renderDashboard();
+            closeNewPatientModal();
+        }
+
+        function openShiftSignoffModal() {
+            document.getElementById('signoffSuccessAlert').classList.add('hidden');
+            document.getElementById('confirmSignoffBtn').disabled = false;
+            document.getElementById('signoffModal').classList.remove('hidden');
+        }
+
+        function closeShiftSignoffModal() {
+            document.getElementById('signoffModal').classList.add('hidden');
+        }
+
+        function processShiftSignoff() {
+            const incoming = document.getElementById('incomingStaff').value.trim();
+            if (!incoming) {
+                alert('Please enter the name of the incoming clinical staff member.');
+                return;
+            }
+
+            const btn = document.getElementById('confirmSignoffBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing...`;
+
+            setTimeout(() => {
+                document.getElementById('signoffSuccessAlert').classList.remove('hidden');
+                btn.innerHTML = `<i class="fa-solid fa-check"></i> Signed Off`;
+                
+                setTimeout(() => {
+                    closeShiftSignoffModal();
+                }, 1500);
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
